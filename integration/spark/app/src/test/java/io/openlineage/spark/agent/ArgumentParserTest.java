@@ -29,6 +29,8 @@ class ArgumentParserTest {
   private static final String ENDPOINT = "api/v1/lineage";
   private static final String AUTH_TYPE = "api_key";
   private static final String API_KEY = "random_token";
+  private static final String CUSTOM_TOKEN_PROVIDER_FQCN =
+      FakeTokenProvider.class.getCanonicalName();
 
   @Test
   void testDefaults() {
@@ -102,6 +104,33 @@ class ArgumentParserTest {
     assert (transportConfig.getAuth() != null);
     assert (transportConfig.getAuth() instanceof ApiKeyTokenProvider);
     assertEquals("Bearer random_token", transportConfig.getAuth().getToken());
+    assertEquals(5000, transportConfig.getTimeout());
+    assertEquals("test1", transportConfig.getHeaders().get("testHeader1"));
+    assertEquals("test2", transportConfig.getHeaders().get("testHeader2"));
+  }
+
+  @Test
+  void testConfToHttpConfigWithCustomTokenProvider() {
+    SparkConf sparkConf =
+        new SparkConf()
+            .set("spark.openlineage.transport.type", "http")
+            .set("spark.openlineage.transport.url", URL)
+            .set("spark.openlineage.transport.endpoint", ENDPOINT)
+            .set("spark.openlineage.transport.auth.type", CUSTOM_TOKEN_PROVIDER_FQCN)
+            .set("spark.openlineage.transport.timeout", "5000")
+            .set("spark.openlineage.facets.disabled", DISABLED_FACETS)
+            .set("spark.openlineage.transport.urlParams.test1", "test1")
+            .set("spark.openlineage.transport.urlParams.test2", "test2")
+            .set("spark.openlineage.transport.headers.testHeader1", "test1")
+            .set("spark.openlineage.transport.headers.testHeader2", "test2");
+
+    OpenLineageYaml openLineageYaml = ArgumentParser.extractOpenlineageConfFromSparkConf(sparkConf);
+    HttpConfig transportConfig = (HttpConfig) openLineageYaml.getTransportConfig();
+    assertEquals(URL, transportConfig.getUrl().toString());
+    assertEquals(ENDPOINT, transportConfig.getEndpoint());
+    assert (transportConfig.getAuth() != null);
+    assert (transportConfig.getAuth() instanceof FakeTokenProvider);
+    assertEquals(FakeTokenProvider.FIXED_TOKEN, transportConfig.getAuth().getToken());
     assertEquals(5000, transportConfig.getTimeout());
     assertEquals("test1", transportConfig.getHeaders().get("testHeader1"));
     assertEquals("test2", transportConfig.getHeaders().get("testHeader2"));
